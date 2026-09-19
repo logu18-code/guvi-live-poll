@@ -1,0 +1,1221 @@
+/* Live Poll — presentation layer
+   Pure CSS. No changes to index.html or app.js are needed.
+
+   Design notes
+   - Cool neutral page, white surfaces, one accent (teal). Teal means "live / active":
+     primary actions, your selected option, and the result bars.
+   - The result bar inside each option row is the memorable element. Everything else
+     stays quiet so the numbers are easy to scan.
+   - Selectors are kept 1:1 with what index.html and app.js already use.
+   - app.js rebuilds the poll list on every change, so nothing here plays an entrance
+     animation on cards (it would flicker on each vote or refresh). */
+
+/* ============================== Tokens ============================== */
+
+:root {
+  color-scheme: light;
+
+  --bg: #f3f6f8;
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;
+  --ink: #0f172a;
+  --muted: #475569;
+  --line: #e2e8f0;
+  --line-strong: #cbd5e1;
+
+  --accent: #0f766e;          /* white text on this is ~5.5:1 */
+  --accent-strong: #115e59;
+  --accent-soft: #f0fdfa;
+  --accent-tint: #ccfbf1;     /* result bars */
+  --accent-mid: #99f6e4;      /* result bar of the row you picked */
+  --accent-ring: rgba(15, 118, 110, 0.2);
+
+  --danger: #b91c1c;
+  --danger-ink: #991b1b;
+  --danger-soft: #fef2f2;
+  --danger-line: #fecaca;
+
+  --radius-lg: 16px;
+  --radius: 12px;
+  --radius-sm: 8px;
+
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 1px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 8px 24px -8px rgba(15, 23, 42, 0.14), 0 2px 6px rgba(15, 23, 42, 0.05);
+
+  --font-ui: "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --max: 1120px;
+}
+
+/* ============================== Base ============================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 1rem/1.55 var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, p {
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+::selection {
+  background: var(--accent-tint);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: -999px;
+  top: 8px;
+  z-index: 30;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  left: 8px;
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The heading only takes focus from script after login; it needs no ring. */
+[tabindex="-1"]:focus {
+  outline: none;
+}
+
+.noscript {
+  max-width: var(--max);
+  margin: 16px auto;
+  padding: 12px 24px;
+  background: var(--danger-soft);
+  border: 1px solid var(--danger-line);
+  border-radius: var(--radius-sm);
+  color: var(--danger-ink);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================== Header ============================== */
+/* The existing markup is a brand block plus a status/user block. A grid with
+   .brand set to display: contents lets the tagline become the page's intro line
+   without touching the HTML. */
+
+.site-header {
+  background:
+    radial-gradient(900px 260px at 85% -10%, var(--accent-tint) 0%, rgba(204, 251, 241, 0) 70%),
+    var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.header-inner {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 16px 24px 36px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "name    right"
+    "tagline tagline";
+  align-items: center;
+  column-gap: 20px;
+}
+
+.brand {
+  display: contents;
+}
+
+.brand-name {
+  grid-area: name;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  justify-self: start;
+  font-size: 1.125rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Logo mark drawn in CSS: a rounded square with three result bars. */
+.brand-name::before {
+  content: "";
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background:
+    linear-gradient(#fff, #fff) 8px 16px / 4px 8px no-repeat,
+    linear-gradient(#fff, #fff) 14px 11px / 4px 13px no-repeat,
+    linear-gradient(#fff, #fff) 20px 7px / 4px 17px no-repeat,
+    var(--accent);
+  box-shadow: 0 1px 2px rgba(15, 118, 110, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.brand-tagline {
+  grid-area: tagline;
+  margin-top: 36px;
+  max-width: 18ch;
+  font-size: clamp(2rem, 1.2rem + 3.4vw, 3.25rem);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.brand-tagline::after {
+  content: "";
+  display: block;
+  width: 56px;
+  height: 4px;
+  margin-top: 20px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+/* Once someone is signed in the intro steps back so the polls sit higher. */
+body[data-auth="in"] .header-inner {
+  padding-bottom: 24px;
+}
+
+body[data-auth="in"] .brand-tagline {
+  margin-top: 20px;
+  max-width: none;
+  font-size: clamp(1.5rem, 1rem + 2vw, 2rem);
+}
+
+body[data-auth="in"] .brand-tagline::after {
+  display: none;
+}
+
+.header-right {
+  grid-area: right;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  min-width: 0;
+}
+
+/* ----- Server status pill ----- */
+
+.backend-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pulse {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+
+.backend-status[data-state="checking"] .pulse {
+  animation: blink 1.2s ease-in-out infinite;
+}
+
+.backend-status[data-state="online"] {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+}
+
+.backend-status[data-state="online"] .pulse {
+  background: #10b981;
+  animation: pulse 2.4s ease-out infinite;
+}
+
+.backend-status[data-state="degraded"] {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.backend-status[data-state="degraded"] .pulse {
+  background: #f59e0b;
+}
+
+.backend-status[data-state="offline"] {
+  background: var(--danger-soft);
+  border-color: var(--danger-line);
+  color: var(--danger-ink);
+}
+
+.backend-status[data-state="offline"] .pulse {
+  background: var(--danger);
+}
+
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
+  70%  { box-shadow: 0 0 0 7px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.3; }
+}
+
+/* ----- Signed-in user chip ----- */
+
+.user-info {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 12px;
+  min-width: 0;
+  padding: 6px 6px 6px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.user-name {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  max-width: 18ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.user-email {
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+  max-width: 26ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+.user-email:empty {
+  display: none;
+}
+
+#logout-btn {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+/* ============================== Layout ============================== */
+
+.layout {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 32px 24px 72px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 32px;
+  align-items: start;
+}
+
+/* Only stick when the viewport is tall enough to show the whole panel. */
+@media (min-width: 861px) and (min-height: 820px) {
+  .side-column {
+    position: sticky;
+    top: 24px;
+  }
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.section-head h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.section-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.updated {
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================== Buttons ============================== */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 20px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: none;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+}
+
+/* Spinner while a request is in flight (app.js sets aria-busy on the button). */
+.btn[aria-busy="true"] {
+  cursor: progress;
+}
+
+.btn[aria-busy="true"]::before {
+  content: "";
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-strong);
+  box-shadow: 0 4px 12px -2px rgba(15, 118, 110, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+/* Disabled and not busy = the "Voted" button: calm and complete, not broken. */
+.btn-primary:disabled:not([aria-busy="true"]) {
+  background: var(--accent-soft);
+  border-color: var(--accent-tint);
+  color: var(--accent-strong);
+  box-shadow: none;
+}
+
+.btn-primary:disabled[aria-busy="true"] {
+  opacity: 0.85;
+}
+
+.btn-secondary {
+  border-color: var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  border-color: #94a3b8;
+  background: var(--surface-muted);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+}
+
+.btn-small {
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font-size: 0.875rem;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.btn-icon {
+  flex: none;
+  width: 44px;
+  padding: 0;
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-strong);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  color: var(--accent);
+}
+
+/* ============================== Panels and forms ============================== */
+
+.panel {
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.panel h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.panel-intro {
+  margin: 6px 0 20px;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+#create-panel h2 {
+  margin-bottom: 20px;
+}
+
+/* Segmented control for Log in / Sign up. */
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  padding: 4px;
+  background: #eef2f6;
+  border-radius: var(--radius);
+}
+
+.tab {
+  flex: 1;
+  min-height: 40px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tab:hover {
+  color: var(--ink);
+}
+
+.tab[aria-selected="true"] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(15, 23, 42, 0.04);
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.field label,
+.options-field legend {
+  color: #1e293b;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 14px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: inset 0 1px 1px rgba(15, 23, 42, 0.03);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input[type="text"]:hover,
+input[type="email"]:hover,
+input[type="password"]:hover {
+  border-color: #94a3b8;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-ring);
+  outline: 2px solid transparent; /* keeps a visible outline in forced-colors mode */
+}
+
+input::placeholder {
+  color: #64748b;
+}
+
+.options-field {
+  min-width: 0;
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+}
+
+.options-field legend {
+  padding: 0;
+  margin-bottom: 8px;
+}
+
+.option-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.option-row .btn-icon {
+  min-height: 46px;
+  width: 46px;
+  color: var(--muted);
+}
+
+.option-row .btn-icon:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+#add-option-btn {
+  width: 100%;
+  margin-top: 4px;
+  border-style: dashed;
+  color: var(--accent-strong);
+  box-shadow: none;
+}
+
+#add-option-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* ----- Error notices (login, signup, create, polls refresh) ----- */
+
+.notice {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  background: var(--danger-soft);
+  border: 1px solid var(--danger-line);
+  border-radius: var(--radius-sm);
+  color: var(--danger-ink);
+  font-size: 0.9375rem;
+  line-height: 1.45;
+}
+
+/* Small badge icon so messages never rely on colour alone. */
+.notice::before,
+.poll-status.is-error::before,
+.poll-status.is-success::before,
+.toast::before {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 8px;
+  border-radius: 50%;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  line-height: 1;
+  vertical-align: -0.25em;
+}
+
+.notice::before,
+.poll-status.is-error::before {
+  content: "!";
+  background: var(--danger);
+  color: #fff;
+}
+
+#polls-notice {
+  margin-bottom: 16px;
+}
+
+/* ============================== Poll cards ============================== */
+
+.polls-list {
+  display: grid;
+  gap: 20px;
+}
+
+.poll {
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.poll:hover {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-md);
+}
+
+.poll-question {
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.poll-meta {
+  margin: 6px 0 20px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.options {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* One option = one row. The bar behind the text is that option's share of the votes. */
+.option {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 14px;
+  min-height: 56px;
+  padding: 10px 16px;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.option:not(.is-locked):hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.option.is-locked {
+  cursor: default;
+}
+
+.option.is-selected,
+.option.is-voted {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.option:has(input:focus-visible) {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The native radio stays in the DOM for keyboards and screen readers. */
+.option input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.option-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  background: var(--accent-tint);
+  transition: width 0.6s var(--ease);
+}
+
+.option.is-selected .option-bar,
+.option.is-voted .option-bar {
+  background: var(--accent-mid);
+}
+
+/* Content sits above the bar (positioned siblings paint after it). */
+.option-mark,
+.option-text,
+.option-figures {
+  position: relative;
+}
+
+.option-mark {
+  grid-column: 1;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  background: var(--surface);
+  border: 2px solid #94a3b8;
+  border-radius: 50%;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.option:not(.is-locked):hover .option-mark {
+  border-color: var(--accent);
+}
+
+.option input:checked ~ .option-mark {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.option input:checked ~ .option-mark::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  background: #fff;
+  border-radius: 50%;
+}
+
+.option input:focus-visible ~ .option-mark {
+  box-shadow: 0 0 0 4px var(--accent-ring);
+}
+
+.option-text {
+  grid-column: 2;
+  font-weight: 500;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.option-tag {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 2px 8px;
+  background: var(--accent);
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  vertical-align: 1px;
+}
+
+.option-figures {
+  grid-column: 3;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.option-count {
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.option-count strong {
+  padding: 0 3px;
+  border-radius: 4px;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* One brief highlight when a count goes up; it stops on its own. */
+.option-count.is-bumped strong {
+  animation: bump 1.4s ease-out;
+}
+
+@keyframes bump {
+  from { background: var(--accent); color: #fff; }
+  to   { background: transparent; color: var(--ink); }
+}
+
+.option-pct {
+  min-width: 4ch;
+  text-align: right;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.poll-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.poll-total {
+  color: var(--muted);
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.poll-total strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.poll-footer .btn {
+  min-width: 128px;
+}
+
+/* One line under the vote button: hint, progress, success or error. */
+.poll-status {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 0.9375rem;
+  line-height: 1.45;
+}
+
+.poll-status.is-success {
+  background: var(--accent-soft);
+  border-color: var(--accent-tint);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.poll-status.is-success::before {
+  content: "\2713";
+  background: var(--accent);
+  color: #fff;
+}
+
+.poll-status.is-error {
+  background: var(--danger-soft);
+  border-color: var(--danger-line);
+  color: var(--danger-ink);
+  font-weight: 600;
+}
+
+/* ============================== Loading / empty / error states ============================== */
+
+.state {
+  padding: 48px 24px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-lg);
+}
+
+/* Empty state icon: a small bar chart drawn in CSS. */
+.state::before {
+  content: "";
+  display: block;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  border-radius: 16px;
+  background:
+    linear-gradient(var(--accent), var(--accent)) 14px 26px / 6px 14px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) 25px 18px / 6px 22px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) 36px 12px / 6px 28px no-repeat,
+    var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-tint);
+}
+
+/* Loading state: app.js marks the list aria-busy until the first response. */
+.polls-list[aria-busy="true"] .state::before {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--accent-tint);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  background: none;
+  box-shadow: none;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Error state (has a retry button, so app.js gives it role="alert"). */
+.state[role="alert"] {
+  border-style: solid;
+  border-color: var(--danger-line);
+  background: #fffafa;
+}
+
+.state[role="alert"]::before {
+  content: "!";
+  display: grid;
+  place-items: center;
+  background: var(--danger-soft);
+  box-shadow: inset 0 0 0 1px var(--danger-line);
+  color: var(--danger);
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.state-title {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.state[role="alert"] .state-title {
+  color: var(--danger-ink);
+}
+
+.state-hint {
+  max-width: 40ch;
+  margin: 6px auto 0;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+.state .btn {
+  margin-top: 20px;
+}
+
+/* ============================== Toast ============================== */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: max(20px, env(safe-area-inset-bottom));
+  z-index: 20;
+  width: max-content;
+  max-width: min(92vw, 420px);
+  padding: 12px 18px;
+  transform: translateX(-50%);
+  background: var(--ink);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 32px -8px rgba(15, 23, 42, 0.45);
+  color: #fff;
+  font-size: 0.9375rem;
+  animation: toast-in 0.25s var(--ease);
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.toast[data-type="success"]::before {
+  content: "\2713";
+  background: #34d399;
+  color: #052e2b;
+}
+
+.toast[data-type="error"] {
+  background: var(--danger);
+}
+
+.toast[data-type="error"]::before {
+  content: "!";
+  background: #fff;
+  color: var(--danger);
+}
+
+/* ============================== Responsive ============================== */
+
+@media (max-width: 860px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+    padding-top: 24px;
+  }
+}
+
+@media (max-width: 640px) {
+  .header-inner {
+    padding: 14px 16px 28px;
+    column-gap: 12px;
+  }
+
+  .brand-tagline {
+    margin-top: 28px;
+    max-width: none;
+    font-size: 2rem;
+  }
+
+  /* Signed in: status pill and user chip need a row of their own. */
+  body[data-auth="in"] .header-inner {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "name"
+      "right"
+      "tagline";
+    padding-bottom: 20px;
+  }
+
+  body[data-auth="in"] .header-right {
+    justify-content: space-between;
+    margin-top: 12px;
+  }
+
+  body[data-auth="in"] .brand-tagline {
+    margin-top: 16px;
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .layout {
+    padding: 20px 16px 56px;
+  }
+
+  .btn-small {
+    min-height: 44px;
+  }
+
+  .section-tools .updated {
+    display: none;
+  }
+
+  .panel {
+    padding: 20px 16px;
+  }
+
+  .poll {
+    padding: 20px 16px;
+  }
+
+  .poll-question {
+    font-size: 1.25rem;
+  }
+
+  .option {
+    padding: 10px 12px;
+  }
+
+  .poll-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .poll-footer .btn {
+    width: 100%;
+  }
+
+  .toast {
+    max-width: calc(100vw - 32px);
+  }
+}
+
+/* Very narrow phones: put the numbers under the option text so nothing gets squeezed. */
+@media (max-width: 420px) {
+  .option-mark {
+    grid-row: 1;
+  }
+
+  .option-text {
+    grid-column: 2 / -1;
+    grid-row: 1;
+  }
+
+  .option-figures {
+    grid-column: 2 / -1;
+    grid-row: 2;
+    justify-content: space-between;
+    margin-top: 2px;
+  }
+
+  .option-tag {
+    margin-left: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

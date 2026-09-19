@@ -1,0 +1,4 @@
+backend/.env
+frontend/style-backup.css
+node_modules/
+*.log

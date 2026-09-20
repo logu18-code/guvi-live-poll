@@ -3,7 +3,7 @@
    never innerHTML, so poll text cannot inject markup. */
 "use strict";
 
-const API_BASE = "http://localhost:8080";
+const API_BASE = "https://guvi-live-poll-backend.onrender.com";
 
 const TOKEN_KEY = "token";
 const USER_KEY = "user";

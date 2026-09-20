@@ -1,4 +1,3 @@
-jsx
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import AuthPanel from "./components/AuthPanel.jsx";
@@ -146,10 +145,16 @@ export default function App() {
    *
    * No page refresh is required.
    */
-  usePollEvents(
-    polls.map((poll) => poll.id),
-    applyUpdate
-  );
+  const realtimePollIds = polls
+  .filter(Boolean)
+  .map((poll) => poll.id);
+
+console.log("REALTIME POLL IDS:", realtimePollIds);
+
+usePollEvents(
+  realtimePollIds,
+  applyUpdate
+);
 
   useEffect(() => {
     let alive = true;

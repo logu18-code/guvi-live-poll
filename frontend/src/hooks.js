@@ -8,20 +8,27 @@ import {
   API_BASE,
 } from "./api.js";
 
-// Returns a stable request(path, options) function that:
-// - attaches the login token (unless options.auth === false),
-// - reports whether the server answered (online) or not (offline),
-// - logs the user out if the server rejects their token (401).
+// API request helper
 export function useApi(token, onStatus, onExpired) {
-  const latest = useRef({ token, onStatus, onExpired });
+  const latest = useRef({
+    token,
+    onStatus,
+    onExpired,
+  });
 
   useEffect(() => {
-    latest.current = { token, onStatus, onExpired };
+    latest.current = {
+      token,
+      onStatus,
+      onExpired,
+    };
   });
 
   return useCallback(async (path, options = {}) => {
     const { auth = true, ...rest } = options;
+
     const current = latest.current;
+
     const sentToken = auth ? current.token : null;
 
     try {
@@ -35,7 +42,9 @@ export function useApi(token, onStatus, onExpired) {
       return data;
     } catch (err) {
       if (err instanceof ApiError) {
-        current.onStatus(err.isNetwork ? "offline" : "online");
+        current.onStatus(
+          err.isNetwork ? "offline" : "online"
+        );
 
         if (err.status === 401 && sentToken) {
           current.onExpired();
@@ -47,18 +56,22 @@ export function useApi(token, onStatus, onExpired) {
   }, []);
 }
 
-// Loads the active polls.
-// A newer request always wins over an older, slower one.
-// Also refreshes once when you come back to the tab.
+// Loads active polls and also accepts realtime updates.
 export function usePolls(request) {
   const [polls, setPolls] = useState([]);
+
   const [hasLoaded, setHasLoaded] = useState(false);
+
   const [loading, setLoading] = useState(false);
+
   const [error, setError] = useState("");
+
   const [lastLoadedAt, setLastLoadedAt] = useState(0);
 
   const seq = useRef(0);
+
   const loadedRef = useRef(false);
+
   const lastRef = useRef(0);
 
   const reload = useCallback(async () => {
@@ -71,27 +84,36 @@ export function usePolls(request) {
     }
 
     try {
-      const data = await request("/api/polls/active", {
-        auth: false,
-      });
+      const data = await request(
+        "/api/polls/active",
+        {
+          auth: false,
+        }
+      );
 
       if (mine !== seq.current) {
         return;
       }
 
       loadedRef.current = true;
+
       lastRef.current = Date.now();
 
       setPolls(normalizePolls(data));
+
       setHasLoaded(true);
+
       setError("");
+
       setLastLoadedAt(lastRef.current);
     } catch (err) {
       if (mine !== seq.current) {
         return;
       }
 
-      setError(friendlyError(err, "polls"));
+      setError(
+        friendlyError(err, "polls")
+      );
     } finally {
       if (mine === seq.current) {
         setLoading(false);
@@ -99,13 +121,49 @@ export function usePolls(request) {
     }
   }, [request]);
 
+  /*
+   * Called by the realtime SSE connection.
+   *
+   * Redis -> Go backend -> SSE -> React
+   */
+  const applyUpdate = useCallback(
+    (updatedPoll) => {
+      if (
+        !updatedPoll ||
+        typeof updatedPoll.id !== "string"
+      ) {
+        return;
+      }
+
+      setPolls((currentPolls) => {
+        const exists = currentPolls.some(
+          (poll) => poll.id === updatedPoll.id
+        );
+
+        if (!exists) {
+          return currentPolls;
+        }
+
+        return currentPolls.map((poll) =>
+          poll.id === updatedPoll.id
+            ? normalizePolls([updatedPoll])[0]
+            : poll
+        );
+      });
+
+      setLastLoadedAt(Date.now());
+    },
+    []
+  );
+
   useEffect(() => {
     reload();
   }, [reload]);
 
   useEffect(() => {
     function onVisible() {
-      const stale = Date.now() - lastRef.current > 3000;
+      const stale =
+        Date.now() - lastRef.current > 3000;
 
       if (
         document.visibilityState === "visible" &&
@@ -116,10 +174,16 @@ export function usePolls(request) {
       }
     }
 
-    document.addEventListener("visibilitychange", onVisible);
+    document.addEventListener(
+      "visibilitychange",
+      onVisible
+    );
 
     return () => {
-      document.removeEventListener("visibilitychange", onVisible);
+      document.removeEventListener(
+        "visibilitychange",
+        onVisible
+      );
     };
   }, [reload]);
 
@@ -130,12 +194,15 @@ export function usePolls(request) {
     error,
     lastLoadedAt,
     reload,
+    applyUpdate,
   };
 }
 
-// Opens one Server-Sent Events connection for each active poll.
-// Redis -> backend SSE -> this hook -> React state.
-export function usePollEvents(pollIds, onPollUpdate) {
+// Redis -> Backend SSE -> React realtime connection.
+export function usePollEvents(
+  pollIds,
+  onPollUpdate
+) {
   const latest = useRef({
     pollIds,
     onPollUpdate,
@@ -149,7 +216,11 @@ export function usePollEvents(pollIds, onPollUpdate) {
   });
 
   useEffect(() => {
-    const ids = [...new Set(pollIds.filter(Boolean))];
+    const ids = [
+      ...new Set(
+        pollIds.filter(Boolean)
+      ),
+    ];
 
     if (ids.length === 0) {
       return undefined;
@@ -158,15 +229,21 @@ export function usePollEvents(pollIds, onPollUpdate) {
     const connections = new Map();
 
     ids.forEach((id) => {
-      const source = new EventSource(
-        `${API_BASE}/api/polls/${encodeURIComponent(id)}/events`
-      );
+      const url =
+        `${API_BASE}/api/polls/` +
+        `${encodeURIComponent(id)}/events`;
+
+      const source = new EventSource(url);
 
       const handleUpdate = (event) => {
         try {
-          const poll = JSON.parse(event.data);
+          const poll = JSON.parse(
+            event.data
+          );
 
-          latest.current.onPollUpdate(poll);
+          latest.current.onPollUpdate(
+            poll
+          );
         } catch (error) {
           console.error(
             "Failed to parse realtime poll update",
@@ -175,12 +252,17 @@ export function usePollEvents(pollIds, onPollUpdate) {
         }
       };
 
-      source.addEventListener("poll-update", handleUpdate);
+      source.addEventListener(
+        "poll-update",
+        handleUpdate
+      );
 
       source.onerror = () => {
-        // EventSource automatically reconnects.
+        /*
+         * EventSource automatically reconnects.
+         */
         console.warn(
-          `Realtime connection issue for poll ${id}. Waiting for automatic reconnect.`
+          `Realtime connection issue for poll ${id}.`
         );
       };
 
@@ -188,24 +270,28 @@ export function usePollEvents(pollIds, onPollUpdate) {
     });
 
     return () => {
-      connections.forEach((source) => {
-        source.close();
-      });
+      connections.forEach(
+        (source) => source.close()
+      );
 
       connections.clear();
     };
-  }, [pollIds.join("|")]);
+  }, [
+    pollIds.join("|"),
+  ]);
 }
 
-// True for a moment after a number goes up,
-// so the count can flash once.
+// Adds a temporary visual bump when a vote count increases.
 export function useBump(value) {
   const previous = useRef(value);
-  const [bumped, setBumped] = useState(false);
+
+  const [bumped, setBumped] =
+    useState(false);
 
   useEffect(() => {
     if (value > previous.current) {
       previous.current = value;
+
       setBumped(true);
 
       const timer = setTimeout(() => {
@@ -216,6 +302,7 @@ export function useBump(value) {
     }
 
     previous.current = value;
+
     setBumped(false);
   }, [value]);
 

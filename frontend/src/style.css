@@ -1,0 +1,1226 @@
+/* ==========================================================================
+   Live Poll: stylesheet
+   Drop-in replacement. Every class, ID and data attribute used by index.html
+   and app.js is kept, so nothing in the JavaScript needs to change.
+
+   Design notes
+   - Quiet, light surface. Teal is the single accent, and it only marks things
+     that are live or active: primary actions, the option you picked, result bars.
+   - The header doubles as the hero. The big tagline is the one bold moment;
+     everything else stays calm.
+   - Polls re-render on every click, so nothing on a poll animates on entry.
+     Motion is limited to hover, focus, the result bars, and the toast.
+
+   To try another accent, change only the --live* variables below. Example
+   (indigo): --live #4f46e5, --live-strong #4338ca, --live-tint #f5f5ff,
+   --live-bar #e3e3fb, --live-bar-strong #c7c7f5, --live-ring rgba(79,70,229,.2)
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* Surfaces and text */
+  --bg: #f5f7f9;
+  --surface: #ffffff;
+  --surface-muted: #f2f4f7;
+  --ink: #101828;
+  --ink-soft: #344054;
+  --muted: #475467;
+  --subtle: #667085;
+
+  /* Borders */
+  --line: #e4e7ec;
+  --line-strong: #cfd4dc;
+  --control: #8d97a7;            /* radio rings and hover borders */
+
+  /* Brand accent (white text on --live is 5.5:1) */
+  --live: #0f766e;
+  --live-strong: #115e59;
+  --live-tint: #f0faf8;
+  --live-bar: #d5f0eb;           /* result bars; dark text on it is well above 4.5:1 */
+  --live-bar-strong: #b2e2da;    /* your own vote's bar */
+  --live-ring: rgba(15, 118, 110, 0.18);
+
+  /* Status colors */
+  --ok: #067647;
+  --ok-tint: #ecfdf3;
+  --ok-line: #abefc6;
+  --ok-dot: #12b76a;
+
+  --warn: #b54708;
+  --warn-tint: #fffaeb;
+  --warn-line: #fedf89;
+  --warn-dot: #f79009;
+
+  --danger: #b42318;
+  --danger-tint: #fef3f2;
+  --danger-line: #fda29b;
+  --danger-dot: #f04438;
+
+  /* Shape and depth */
+  --radius-lg: 16px;
+  --radius: 12px;
+  --radius-sm: 10px;
+  --pill: 999px;
+
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-md: 0 8px 24px -6px rgba(16, 24, 40, 0.12), 0 2px 6px rgba(16, 24, 40, 0.05);
+  --shadow-lg: 0 16px 40px -8px rgba(16, 24, 40, 0.3);
+
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --container: 1120px;
+
+  /* System fonts only: nothing to download. "Inter" is used if it is installed. */
+  --font-ui: "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ---------- Base ---------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 1rem/1.5 var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, p {
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+::selection {
+  background: var(--live-bar-strong);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: -999px;
+  top: 8px;
+  z-index: 30;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 2px solid var(--live);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  box-shadow: var(--shadow-md);
+}
+
+.skip-link:focus {
+  left: 8px;
+}
+
+:focus-visible {
+  outline: 3px solid var(--live);
+  outline-offset: 2px;
+}
+
+/* The heading is focused by script after login; it is not a control, so no ring. */
+h2[tabindex="-1"]:focus {
+  outline: none;
+}
+
+.noscript {
+  max-width: var(--container);
+  margin: 16px auto;
+  padding: 12px 24px;
+  color: var(--danger);
+  font-weight: 600;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------- Header and hero ----------
+   .brand is flattened with display: contents so its two children (name and
+   tagline) can sit in the same flex row as the status area: name on the left,
+   status on the right, and the tagline as a large line underneath. */
+
+.site-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.header-inner {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 16px 24px 48px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+
+.brand {
+  display: contents;
+}
+
+.brand-name {
+  order: 1;
+  margin-right: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* Logo mark drawn in CSS: a small bar chart on a teal tile. */
+.brand-name::before {
+  content: "";
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background:
+    linear-gradient(#fff, #fff) 8px 17px / 4px 7px no-repeat,
+    linear-gradient(#fff, #fff) 14px 10px / 4px 14px no-repeat,
+    linear-gradient(#fff, #fff) 20px 13px / 4px 11px no-repeat,
+    var(--live);
+  box-shadow: 0 1px 2px rgba(15, 118, 110, 0.4);
+}
+
+.header-right {
+  order: 2;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  min-width: 0;
+}
+
+.brand-tagline {
+  order: 3;
+  flex: 0 0 100%;
+  margin-top: 28px;
+  font-size: clamp(1.875rem, 1.2rem + 3vw, 3rem);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  color: var(--ink);
+  text-wrap: balance;
+}
+
+/* A short accent bar above the tagline anchors it as the page's opening line. */
+.brand-tagline::before {
+  content: "";
+  display: block;
+  width: 44px;
+  height: 4px;
+  margin-bottom: 18px;
+  border-radius: 4px;
+  background: var(--live);
+}
+
+/* Server status: a pill whose dot and text both change, so it never relies on color alone. */
+.backend-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 10px;
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  border-radius: var(--pill);
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.pulse {
+  position: relative;
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--control);
+  border-radius: 50%;
+}
+
+.backend-status[data-state="online"] {
+  background: var(--ok-tint);
+  border-color: var(--ok-line);
+  color: var(--ok);
+}
+
+.backend-status[data-state="online"] .pulse {
+  background: var(--ok-dot);
+  border-color: var(--ok-dot);
+}
+
+.backend-status[data-state="online"] .pulse::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border: 2px solid var(--ok-dot);
+  border-radius: 50%;
+  animation: pulse 2.4s ease-out infinite;
+}
+
+@keyframes pulse {
+  from { transform: scale(1); opacity: 0.6; }
+  to   { transform: scale(2.6); opacity: 0; }
+}
+
+.backend-status[data-state="degraded"] {
+  background: var(--warn-tint);
+  border-color: var(--warn-line);
+  color: var(--warn);
+}
+
+.backend-status[data-state="degraded"] .pulse {
+  background: var(--warn-dot);
+  border-color: var(--warn-dot);
+}
+
+.backend-status[data-state="offline"] {
+  background: var(--danger-tint);
+  border-color: var(--danger-line);
+  color: var(--danger);
+}
+
+.backend-status[data-state="offline"] .pulse {
+  background: var(--danger-dot);
+  border-color: var(--danger-dot);
+}
+
+/* Signed-in pill: name, email, and the log out button in one rounded capsule. */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 4px 4px 4px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--pill);
+  box-shadow: var(--shadow-xs);
+}
+
+.user-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 16ch;
+}
+
+.user-email {
+  color: var(--muted);
+  font-size: 0.875rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 24ch;
+}
+
+.user-email:empty {
+  display: none;
+}
+
+.user-info .btn {
+  border-radius: var(--pill);
+}
+
+/* ---------- Layout ---------- */
+
+.layout {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 36px 24px 80px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 36px;
+  align-items: start;
+}
+
+/* Sticks while you scroll the polls. The small padding leaves room for focus rings,
+   and the max-height keeps a long create form reachable on short screens. */
+.side-column {
+  position: sticky;
+  top: 20px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  padding: 4px;
+  margin: -4px;
+}
+
+#auth-panel {
+  scroll-margin-top: 16px;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.section-head h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.section-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.updated {
+  color: var(--subtle);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Buttons ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 20px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    background-color 0.15s var(--ease),
+    border-color 0.15s var(--ease),
+    color 0.15s var(--ease),
+    box-shadow 0.15s var(--ease),
+    transform 0.15s var(--ease);
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--live);
+  color: #fff;
+  box-shadow: var(--shadow-xs), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--live-strong);
+  box-shadow: 0 6px 14px -4px rgba(15, 118, 110, 0.45);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--shadow-xs);
+}
+
+/* A disabled primary button is either "Voted" (finished, so it goes quiet)
+   or busy (still teal, with a spinner). */
+.btn-primary:disabled {
+  background: var(--line);
+  color: var(--subtle);
+  box-shadow: none;
+}
+
+.btn-primary[aria-busy="true"]:disabled {
+  background: var(--live);
+  color: #fff;
+  opacity: 0.85;
+  cursor: progress;
+}
+
+.btn[aria-busy="true"]::before {
+  content: "";
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.btn-secondary {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  color: var(--ink-soft);
+  box-shadow: var(--shadow-xs);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface-muted);
+  border-color: var(--control);
+  color: var(--ink);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.55;
+}
+
+.btn-small {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 0.875rem;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.btn-icon {
+  flex: none;
+  width: 44px;
+  padding: 0;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.btn-icon:hover:not(:disabled) {
+  background: var(--danger-tint);
+  border-color: var(--danger-line);
+  color: var(--danger);
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--live-strong);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  color: var(--live);
+}
+
+/* ---------- Panels and forms ---------- */
+
+.panel {
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.panel h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.panel-intro {
+  margin: 6px 0 20px;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+#create-panel h2 {
+  margin-bottom: 20px;
+}
+
+/* Log in / Sign up as a segmented control. */
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  padding: 4px;
+  background: var(--surface-muted);
+  border-radius: var(--radius-sm);
+}
+
+.tab {
+  flex: 1;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s var(--ease), color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+
+.tab:hover {
+  color: var(--ink);
+}
+
+.tab[aria-selected="true"] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+}
+
+.tab:focus-visible {
+  outline-offset: 0;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.field label,
+.options-field legend {
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.hint {
+  color: var(--subtle);
+  font-size: 0.8125rem;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-xs);
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+
+input[type="text"]:hover,
+input[type="email"]:hover,
+input[type="password"]:hover {
+  border-color: var(--control);
+}
+
+/* A ring instead of the default outline. The transparent outline keeps the focus
+   visible in Windows high-contrast mode, where box-shadow is removed. */
+input[type="text"]:focus-visible,
+input[type="email"]:focus-visible,
+input[type="password"]:focus-visible {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  border-color: var(--live);
+  box-shadow: 0 0 0 4px var(--live-ring);
+}
+
+input::placeholder {
+  color: var(--subtle);
+}
+
+.options-field {
+  min-width: 0;
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+}
+
+.options-field legend {
+  padding: 0;
+  margin-bottom: 8px;
+}
+
+.option-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.option-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+#add-option-btn {
+  width: 100%;
+  border-style: dashed;
+  color: var(--live-strong);
+}
+
+#add-option-btn::before {
+  content: "+";
+  font-size: 1.125rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+/* Errors always carry a "!" badge, so they are never color alone. */
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  background: var(--danger-tint);
+  border: 1px solid var(--danger-line);
+  border-radius: var(--radius-sm);
+  color: var(--danger);
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.notice::before {
+  content: "!";
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+#polls-notice {
+  margin-bottom: 16px;
+}
+
+/* ---------- Polls ---------- */
+
+.polls-list {
+  display: grid;
+  gap: 20px;
+}
+
+.poll {
+  padding: 28px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.poll-question {
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.poll-meta {
+  margin: 6px 0 20px;
+  color: var(--subtle);
+  font-size: 0.8125rem;
+}
+
+.options {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* Each option is a selectable row. Its background bar is the result:
+   the bar width (set by app.js) is this option's share of all votes. */
+.option {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 14px;
+  min-height: 56px;
+  padding: 12px 16px;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.15s var(--ease), background-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+
+.option:hover:not(.is-locked) {
+  border-color: var(--live);
+  background: var(--live-tint);
+}
+
+.option.is-locked {
+  cursor: default;
+}
+
+.option.is-selected,
+.option.is-voted {
+  border-color: var(--live);
+  box-shadow: 0 0 0 1px var(--live), 0 0 0 4px var(--live-ring);
+}
+
+.option:has(input:focus-visible) {
+  outline: 3px solid var(--live);
+  outline-offset: 3px;
+}
+
+/* The native radio stays in the DOM for keyboards and screen readers. */
+.option input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.option-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  background: var(--live-bar);
+  transition: width 0.7s var(--ease);
+}
+
+.option.is-voted .option-bar {
+  background: var(--live-bar-strong);
+}
+
+.option-mark,
+.option-text,
+.option-figures {
+  position: relative;
+}
+
+.option-mark {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  background: var(--surface);
+  border: 2px solid var(--control);
+  border-radius: 50%;
+  transition: border-color 0.15s var(--ease);
+}
+
+.option input:checked ~ .option-mark {
+  border-color: var(--live);
+}
+
+.option input:checked ~ .option-mark::after {
+  content: "";
+  width: 10px;
+  height: 10px;
+  background: var(--live);
+  border-radius: 50%;
+}
+
+.option-text {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.option-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 9px;
+  background: var(--live);
+  border-radius: var(--pill);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  vertical-align: 1px;
+}
+
+.option-figures {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.option-count {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.option-count strong {
+  padding: 0 3px;
+  border-radius: 3px;
+  color: var(--ink);
+}
+
+/* One brief highlight when a count goes up; it stops on its own. */
+.option-count.is-bumped strong {
+  animation: bump 1.4s ease-out;
+}
+
+@keyframes bump {
+  from { background: var(--live); color: #fff; }
+  to   { background: transparent; color: var(--ink); }
+}
+
+.option-pct {
+  min-width: 3.5ch;
+  text-align: right;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.poll-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.poll-total {
+  color: var(--muted);
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.poll-total strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.poll-footer .btn {
+  min-width: 120px;
+}
+
+/* One line under the vote button: a plain hint, or a banner for success and error. */
+.poll-status {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+.poll-status.is-success,
+.poll-status.is-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.poll-status.is-success {
+  background: var(--ok-tint);
+  border-color: var(--ok-line);
+  color: var(--ok);
+}
+
+.poll-status.is-error {
+  background: var(--danger-tint);
+  border-color: var(--danger-line);
+  color: var(--danger);
+}
+
+.poll-status.is-success::before,
+.poll-status.is-error::before {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.poll-status.is-success::before {
+  content: "\2713";
+  background: var(--ok);
+}
+
+.poll-status.is-error::before {
+  content: "!";
+  background: var(--danger);
+}
+
+/* ---------- Loading, empty and error states ----------
+   All three use .state. The icon on top changes with the situation:
+   spinner (loading, no hint line), chart (empty, has a hint), "!" (error, role="alert"). */
+
+.state {
+  padding: 56px 24px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-lg);
+}
+
+.state::before {
+  content: "";
+  display: block;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  background:
+    linear-gradient(var(--live), var(--live)) 17px 27px / 5px 10px no-repeat,
+    linear-gradient(var(--live), var(--live)) 25px 19px / 5px 18px no-repeat,
+    linear-gradient(var(--live), var(--live)) 33px 23px / 5px 14px no-repeat,
+    var(--live-tint);
+  box-shadow: inset 0 0 0 1px var(--live-bar-strong);
+}
+
+.state[role="status"]:not(:has(.state-hint))::before {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 16px;
+  background: none;
+  box-shadow: none;
+  border: 3px solid var(--live-bar-strong);
+  border-top-color: var(--live);
+  animation: spin 0.8s linear infinite;
+}
+
+.state[role="alert"] {
+  border-style: solid;
+  border-color: var(--danger-line);
+}
+
+.state[role="alert"]::before {
+  content: "!";
+  display: grid;
+  place-items: center;
+  background: var(--danger-tint);
+  box-shadow: inset 0 0 0 1px var(--danger-line);
+  color: var(--danger);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.state-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.state-hint {
+  max-width: 44ch;
+  margin: 6px auto 0;
+  color: var(--muted);
+}
+
+.state .btn {
+  margin-top: 20px;
+}
+
+/* ---------- Toast ---------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(92vw, 440px);
+  padding: 12px 18px;
+  transform: translateX(-50%);
+  background: var(--ink);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  animation: toast-in 0.25s var(--ease);
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.toast[data-type="success"]::before,
+.toast[data-type="error"]::before {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.toast[data-type="success"]::before {
+  content: "\2713";
+  background: var(--ok-dot);
+  color: var(--ink);
+}
+
+.toast[data-type="error"] {
+  background: var(--danger);
+}
+
+.toast[data-type="error"]::before {
+  content: "!";
+  background: #fff;
+  color: var(--danger);
+}
+
+/* ---------- Tablet and phone ---------- */
+
+@media (max-width: 920px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 32px;
+    padding-top: 28px;
+  }
+
+  .side-column {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+    margin: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .header-inner {
+    padding: 14px 16px 32px;
+  }
+
+  .brand-tagline {
+    margin-top: 20px;
+  }
+
+  .brand-tagline::before {
+    margin-bottom: 14px;
+  }
+
+  /* The status pill joins the logo row; once signed in, the account capsule
+     gets its own full-width row underneath. */
+  .header-right {
+    display: contents;
+  }
+
+  .backend-status {
+    order: 2;
+  }
+
+  .user-info {
+    order: 2;
+    flex: 1 1 100%;
+    justify-content: space-between;
+  }
+
+  .user-email {
+    display: none;
+  }
+
+  .layout {
+    padding: 24px 16px 64px;
+  }
+
+  .section-head h2 {
+    font-size: 1.25rem;
+  }
+
+  .section-tools .updated {
+    display: none;
+  }
+
+  .btn-small {
+    min-height: 40px;
+  }
+
+  .panel {
+    padding: 20px 18px;
+  }
+
+  .poll {
+    padding: 20px 16px;
+  }
+
+  .poll-question {
+    font-size: 1.1875rem;
+  }
+
+  .option {
+    padding: 10px 12px;
+    column-gap: 12px;
+  }
+
+  /* Percentage on top, count underneath, so long option text keeps its room. */
+  .option-figures {
+    flex-direction: column-reverse;
+    align-items: flex-end;
+    gap: 0;
+  }
+
+  .poll-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .poll-footer .btn {
+    width: 100%;
+  }
+
+  .state {
+    padding: 40px 20px;
+  }
+
+  .toast {
+    bottom: max(16px, env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

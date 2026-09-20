@@ -2,11 +2,13 @@ package handlers
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
 	"livepoll/internal/models"
+	"livepoll/internal/platform"
 	"livepoll/internal/repository"
 
 	"github.com/gin-gonic/gin"
@@ -16,15 +18,18 @@ import (
 type VoteHandler struct {
 	polls *repository.PollRepository
 	votes *repository.VoteRepository
+	redis *platform.Redis
 }
 
 func NewVoteHandler(
 	polls *repository.PollRepository,
 	votes *repository.VoteRepository,
+	redis *platform.Redis,
 ) *VoteHandler {
 	return &VoteHandler{
 		polls: polls,
 		votes: votes,
+		redis: redis,
 	}
 }
 
@@ -175,6 +180,31 @@ func (h *VoteHandler) Create(c *gin.Context) {
 			},
 		})
 		return
+	}
+
+	// MongoDB is the source of truth. If Redis publish fails,
+	// the vote is still successful; log the realtime failure.
+	if h.redis != nil {
+		if receivers, err := h.redis.PublishPollVote(
+			c.Request.Context(),
+			pollID.Hex(),
+		); err != nil {
+			slog.Error(
+				"failed to publish poll vote to Redis",
+				"poll_id",
+				pollID.Hex(),
+				"error",
+				err,
+			)
+		} else {
+			slog.Info(
+				"poll vote published to Redis",
+				"poll_id",
+				pollID.Hex(),
+				"receivers",
+				receivers,
+			)
+		}
 	}
 
 	c.JSON(http.StatusCreated, gin.H{

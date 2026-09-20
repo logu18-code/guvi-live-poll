@@ -11,6 +11,8 @@ import (
 	"livepoll/internal/platform"
 	"livepoll/internal/repository"
 	"livepoll/internal/routes"
+
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 func main() {
@@ -46,7 +48,6 @@ func main() {
 		}
 	}()
 
-	// Create required MongoDB indexes.
 	if err := repository.EnsureIndexes(ctx, mongoDB.DB); err != nil {
 		logger.Error(
 			"failed to create MongoDB indexes",
@@ -105,6 +106,32 @@ func main() {
 	voteHandler := handlers.NewVoteHandler(
 		pollRepo,
 		voteRepo,
+		redisDB,
+	)
+
+	realtimeHandler := handlers.NewRealtimeHandler(
+		redisDB,
+		func(ctx context.Context, pollID string) (any, error) {
+			objectID, err := bson.ObjectIDFromHex(pollID)
+			if err != nil {
+				return nil, handlers.ErrRealtimePollNotFound
+			}
+
+			poll, err := pollRepo.FindByID(
+				ctx,
+				objectID,
+			)
+			if err != nil {
+				if err == repository.ErrNotFound {
+					return nil, handlers.ErrRealtimePollNotFound
+				}
+
+				return nil, err
+			}
+
+			return poll, nil
+		},
+		logger,
 	)
 
 	router := routes.SetupRouter(
@@ -116,6 +143,7 @@ func main() {
 		authHandler,
 		pollHandler,
 		voteHandler,
+		realtimeHandler,
 	)
 
 	logger.Info(

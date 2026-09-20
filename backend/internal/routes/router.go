@@ -22,6 +22,7 @@ func SetupRouter(
 	authHandler *handlers.AuthHandler,
 	pollHandler *handlers.PollHandler,
 	voteHandler *handlers.VoteHandler,
+	realtimeHandler *handlers.RealtimeHandler,
 ) *gin.Engine {
 	router := gin.New()
 
@@ -41,6 +42,13 @@ func SetupRouter(
 	pollRoutes := router.Group("/api/polls")
 	{
 		pollRoutes.GET("/active", pollHandler.GetActive)
+
+		// Public realtime stream.
+		// Anyone viewing a poll can receive live result updates.
+		pollRoutes.GET(
+			"/:pollID/events",
+			realtimeHandler.Events,
+		)
 
 		pollRoutes.POST(
 			"",
